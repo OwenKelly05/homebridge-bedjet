@@ -96,7 +96,7 @@ export class BedJetAccessory {
 
     // Thermostat service
     this.thermostatService = this.accessory.getService(Service.Thermostat)
-      ?? this.accessory.addService(Service.Thermostat, safeName, 'thermostat');
+      ?? this.accessory.addService(Service.Thermostat, 'BedJet', 'thermostat');
 
     this.thermostatService.getCharacteristic(Characteristic.TemperatureDisplayUnits)
       .onGet(() => Characteristic.TemperatureDisplayUnits.CELSIUS);
@@ -143,7 +143,7 @@ export class BedJetAccessory {
 
     // FanV2 service
     this.fanService = this.accessory.getService(Service.Fanv2)
-      ?? this.accessory.addService(Service.Fanv2, `${safeName} Fan`, 'fan');
+      ?? this.accessory.addService(Service.Fanv2, 'BedJet Fan', 'fan');
 
     this.fanService.getCharacteristic(Characteristic.Active)
       .onGet(() =>

@@ -20,10 +20,15 @@ export interface BedJetState {
   notificationCode?: number;
 }
 
+export type DefaultMode = 'heat' | 'turbo' | 'extendedHeat' | 'cool' | 'dry';
+
 export interface BedJetConfig {
   name: string;
-  address: string;        // BLE MAC e.g. "AA:BB:CC:DD:EE:FF"
-  scanTimeout?: number;   // seconds (default 30)
+  address: string;           // BLE MAC e.g. "AA:BB:CC:DD:EE:FF"
+  scanTimeout?: number;      // seconds (default 30)
+  defaultMode?: DefaultMode; // mode to activate when turned on from HomeKit
+  defaultTemperature?: number; // °C, applied on turn-on
+  defaultFanSpeed?: number;    // percent 5–100, applied on turn-on
 }
 
 export const DEFAULT_STATE: BedJetState = {

@@ -31,6 +31,35 @@
               "type": "integer",
               "default": 30,
               "description": "How long to scan for the device before giving up (default: 30)"
+            },
+            "defaultMode": {
+              "title": "Default Mode (when turned on)",
+              "type": "string",
+              "default": "heat",
+              "oneOf": [
+                { "title": "Heat",          "enum": ["heat"] },
+                { "title": "Turbo",         "enum": ["turbo"] },
+                { "title": "Extended Heat", "enum": ["extendedHeat"] },
+                { "title": "Cool (Fan Only)", "enum": ["cool"] },
+                { "title": "Dry",           "enum": ["dry"] }
+              ],
+              "description": "Mode to activate when the BedJet is turned on from HomeKit"
+            },
+            "defaultTemperature": {
+              "title": "Default Temperature °C (when turned on)",
+              "type": "number",
+              "minimum": 19,
+              "maximum": 43,
+              "multipleOf": 0.5,
+              "description": "Target temperature to set when turned on. Range: 19–43°C (66–109°F). Leave blank to keep the BedJet's last-used temperature."
+            },
+            "defaultFanSpeed": {
+              "title": "Default Fan Speed % (when turned on)",
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 100,
+              "multipleOf": 5,
+              "description": "Fan speed to set when turned on (5–100% in 5% steps). Leave blank to keep the BedJet's last-used speed."
             }
           }
         }

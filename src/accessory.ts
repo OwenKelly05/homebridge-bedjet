@@ -1,8 +1,16 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { BedJet } from './bedjet/BedJet';
 import { OperatingMode } from './bedjet/constants';
-import type { BedJetConfig, BedJetState } from './bedjet/types';
+import type { BedJetConfig, BedJetState, DefaultMode } from './bedjet/types';
 import type { BedJetPlatform } from './platform';
+
+const DEFAULT_MODE_MAP: Record<DefaultMode, OperatingMode> = {
+  heat:         OperatingMode.HEAT,
+  turbo:        OperatingMode.TURBO,
+  extendedHeat: OperatingMode.EXTENDED_HEAT,
+  cool:         OperatingMode.COOL,
+  dry:          OperatingMode.DRY,
+};
 
 // OperatingMode → CurrentHeatingCoolingState value
 const CURRENT_STATE_MAP: Record<OperatingMode, number> = {
@@ -107,8 +115,12 @@ export class BedJetAccessory {
       })
       .onSet((value: CharacteristicValue) => {
         this.setPending(value as number, 'pendingMode', 'pendingModeTimer');
+        const wasOff = this.bedjet.state.operatingMode === OperatingMode.STANDBY
+          || this.bedjet.state.operatingMode === OperatingMode.WAIT;
+        const turningOn = (value as number) !== 0;
         const mode = TARGET_TO_MODE[value as number] ?? OperatingMode.STANDBY;
-        this.bedjet.setOperatingMode(mode).catch(err =>
+        // Apply the requested mode, then defaults (temp/fan) if turning on from off
+        this._applyModeAndDefaults(mode, wasOff && turningOn, false).catch(err =>
           this.platform.log.error(`[${config.name}] setOperatingMode failed: ${err}`),
         );
       });
@@ -124,20 +136,19 @@ export class BedJetAccessory {
           : Characteristic.Active.INACTIVE,
       )
       .onSet((value: CharacteristicValue) => {
-        // pendingMode: 0=OFF, 1=HEAT (active), used to suppress stale BLE bounce
-        const pendingModeValue = value === Characteristic.Active.INACTIVE ? 0 : 1;
-        this.setPending(pendingModeValue, 'pendingMode', 'pendingModeTimer');
         if (value === Characteristic.Active.INACTIVE) {
+          this.setPending(0, 'pendingMode', 'pendingModeTimer');
           this.bedjet.setOperatingMode(OperatingMode.STANDBY).catch(err =>
             this.platform.log.error(`[${config.name}] setOperatingMode(STANDBY) failed: ${err}`),
           );
-        } else {
-          // Only turn on if currently off
-          if (this.bedjet.state.operatingMode === OperatingMode.STANDBY) {
-            this.bedjet.setOperatingMode(OperatingMode.HEAT).catch(err =>
-              this.platform.log.error(`[${config.name}] setOperatingMode(HEAT) failed: ${err}`),
-            );
-          }
+        } else if (this.bedjet.state.operatingMode === OperatingMode.STANDBY) {
+          // Turning on — use configured default mode and apply all defaults
+          const mode = this.config.defaultMode
+            ? DEFAULT_MODE_MAP[this.config.defaultMode]
+            : OperatingMode.HEAT;
+          this._applyModeAndDefaults(mode, true, true).catch(err =>
+            this.platform.log.error(`[${config.name}] turn on failed: ${err}`),
+          );
         }
       });
 
@@ -172,6 +183,41 @@ export class BedJetAccessory {
     this.bedjet.connect().catch(err =>
       this.platform.log.error(`[${config.name}] Initial connect failed: ${err}`),
     );
+  }
+
+  /**
+   * Set the operating mode, then optionally apply default temperature and fan
+   * speed from config. applyDefaults=true when turning on from off.
+   * applyMode=true when the mode itself should come from defaultMode config
+   * (fan turn-on path); false when HomeKit supplied the mode explicitly
+   * (thermostat path).
+   */
+  private async _applyModeAndDefaults(
+    mode: OperatingMode,
+    applyDefaults: boolean,
+    applyMode: boolean,
+  ): Promise<void> {
+    const { config } = this;
+
+    // Determine HomeKit target state for pending optimistic value
+    const pendingState =
+      mode === OperatingMode.STANDBY ? 0
+        : mode === OperatingMode.COOL || mode === OperatingMode.DRY ? 2
+          : 1;
+    this.setPending(pendingState, 'pendingMode', 'pendingModeTimer', 5000);
+
+    await this.bedjet.setOperatingMode(mode);
+
+    if (applyDefaults) {
+      if (config.defaultTemperature !== undefined) {
+        this.setPending(config.defaultTemperature, 'pendingTemp', 'pendingTempTimer', 5000);
+        await this.bedjet.setTemperature(config.defaultTemperature);
+      }
+      if (config.defaultFanSpeed !== undefined) {
+        this.setPending(config.defaultFanSpeed, 'pendingFanSpeed', 'pendingFanSpeedTimer', 5000);
+        await this.bedjet.setFanSpeed(config.defaultFanSpeed);
+      }
+    }
   }
 
   private _syncHomeKit(state: BedJetState): void {

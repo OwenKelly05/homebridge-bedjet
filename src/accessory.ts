@@ -130,13 +130,23 @@ export class BedJetAccessory {
         return 1; // HEAT / TURBO / EXTENDED_HEAT
       })
       .onSet((value: CharacteristicValue) => {
-        this.setPending(value as number, 'pendingMode', 'pendingModeTimer');
+        const val = value as number;
         const wasOff = this.bedjet.state.operatingMode === OperatingMode.STANDBY
           || this.bedjet.state.operatingMode === OperatingMode.WAIT;
-        const turningOn = (value as number) !== 0;
-        const mode = TARGET_TO_MODE[value as number] ?? OperatingMode.STANDBY;
-        // Apply the requested mode, then defaults (temp/fan) if turning on from off
-        this._applyModeAndDefaults(mode, wasOff && turningOn, false).catch(err =>
+        const turningOn = val !== 0;
+
+        let mode: OperatingMode;
+        if (val === 3 || (turningOn && wasOff)) {
+          // Siri sends Auto (3) when turning on — and any turn-on from standby —
+          // should respect the user's configured defaultMode.
+          mode = config.defaultMode
+            ? DEFAULT_MODE_MAP[config.defaultMode]
+            : TARGET_TO_MODE[val] ?? OperatingMode.HEAT;
+        } else {
+          mode = TARGET_TO_MODE[val] ?? OperatingMode.STANDBY;
+        }
+
+        this._applyModeAndDefaults(mode, wasOff && turningOn).catch(err =>
           this.platform.log.error(`[${config.name}] setOperatingMode failed: ${err}`),
         );
       });
@@ -162,7 +172,7 @@ export class BedJetAccessory {
           const mode = this.config.defaultMode
             ? DEFAULT_MODE_MAP[this.config.defaultMode]
             : OperatingMode.HEAT;
-          this._applyModeAndDefaults(mode, true, true).catch(err =>
+          this._applyModeAndDefaults(mode, true).catch(err =>
             this.platform.log.error(`[${config.name}] turn on failed: ${err}`),
           );
         }
@@ -211,7 +221,6 @@ export class BedJetAccessory {
   private async _applyModeAndDefaults(
     mode: OperatingMode,
     applyDefaults: boolean,
-    applyMode: boolean,
   ): Promise<void> {
     const { config } = this;
 

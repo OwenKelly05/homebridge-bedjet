@@ -1,10 +1,18 @@
 {
   "name": "homebridge-bedjet",
   "displayName": "BedJet",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Homebridge plugin for BedJet V3 via Bluetooth LE",
   "license": "MIT",
   "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OwenKelly05/homebridge-bedjet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OwenKelly05/homebridge-bedjet/issues"
+  },
+  "homepage": "https://github.com/OwenKelly05/homebridge-bedjet#readme",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",

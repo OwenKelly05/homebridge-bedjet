@@ -362,19 +362,27 @@
       modeField.appendChild(modeSelect);
       row.appendChild(modeField);
 
-      // Temperature
+      // Temperature — stored and entered in °F.
+      // Old configs may have stored °C (≤ 43); convert those to °F for display.
+      var tempF = null;
+      if (currentTemp != null) {
+        tempF = currentTemp > 43
+          ? Math.round(currentTemp)              // already °F
+          : Math.round(currentTemp * 9 / 5 + 32); // was °C — convert for display
+      }
+
       var tempField = document.createElement('div');
       tempField.className = 'field';
       var tempLabel = document.createElement('label');
-      tempLabel.textContent = 'Temp °C';
+      tempLabel.textContent = 'Temp °F';
       var tempInput = document.createElement('input');
       tempInput.type = 'number';
       tempInput.className = 'field-temp';
-      tempInput.min = '19';
-      tempInput.max = '43';
-      tempInput.step = '0.5';
+      tempInput.min = '66';
+      tempInput.max = '109';
+      tempInput.step = '1';
       tempInput.placeholder = 'Optional';
-      if (currentTemp != null) tempInput.value = currentTemp;
+      if (tempF !== null) tempInput.value = tempF;
       tempField.appendChild(tempLabel);
       tempField.appendChild(tempInput);
       row.appendChild(tempField);

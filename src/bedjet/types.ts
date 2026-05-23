@@ -27,7 +27,7 @@ export interface BedJetConfig {
   address: string;           // BLE MAC e.g. "AA:BB:CC:DD:EE:FF"
   scanTimeout?: number;      // seconds (default 30)
   defaultMode?: DefaultMode; // mode to activate when turned on from HomeKit
-  defaultTemperature?: number; // °C, applied on turn-on
+  defaultTemperature?: number; // °F (values >43 treated as °F; ≤43 treated as °C for backward compat)
   defaultFanSpeed?: number;    // percent 5–100, applied on turn-on
 }
 

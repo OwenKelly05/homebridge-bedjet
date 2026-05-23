@@ -222,8 +222,16 @@ export class BedJetAccessory {
 
     if (applyDefaults) {
       if (config.defaultTemperature !== undefined) {
-        this.setPending(config.defaultTemperature, 'pendingTemp', 'pendingTempTimer', 5000);
-        await this.bedjet.setTemperature(config.defaultTemperature);
+        // Config stores °F (values > 43 are unambiguously Fahrenheit).
+        // Old configs stored °C (≤ 43) — leave those as-is for backward compat.
+        let tempC = config.defaultTemperature;
+        if (tempC > 43) {
+          tempC = (tempC - 32) * 5 / 9;
+        }
+        // Clamp to BedJet V3 valid range 19–43 °C, rounded to nearest 0.5
+        tempC = Math.max(19, Math.min(43, Math.round(tempC * 2) / 2));
+        this.setPending(tempC, 'pendingTemp', 'pendingTempTimer', 5000);
+        await this.bedjet.setTemperature(tempC);
       }
       if (config.defaultFanSpeed !== undefined) {
         this.setPending(config.defaultFanSpeed, 'pendingFanSpeed', 'pendingFanSpeedTimer', 5000);

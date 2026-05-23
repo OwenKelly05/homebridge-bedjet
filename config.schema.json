@@ -46,12 +46,12 @@
               "description": "Mode to activate when the BedJet is turned on from HomeKit"
             },
             "defaultTemperature": {
-              "title": "Default Temperature °C (when turned on)",
+              "title": "Default Temperature °F (when turned on)",
               "type": "number",
-              "minimum": 19,
-              "maximum": 43,
-              "multipleOf": 0.5,
-              "description": "Target temperature to set when turned on. Range: 19–43°C (66–109°F). Leave blank to keep the BedJet's last-used temperature."
+              "minimum": 66,
+              "maximum": 109,
+              "multipleOf": 1,
+              "description": "Target temperature to set when turned on, in °F. Range: 66–109°F. Leave blank to keep the BedJet's last-used temperature."
             },
             "defaultFanSpeed": {
               "title": "Default Fan Speed % (when turned on)",

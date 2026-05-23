@@ -407,6 +407,23 @@
       return row;
     }
 
+    // ── Sync Homebridge's in-memory config after a server-side write ─────────
+    // The purple SAVE button writes Homebridge's in-memory copy to disk.  If we
+    // don't update that in-memory copy our server-side write gets overwritten.
+
+    async function syncHomebridgeConfig() {
+      try {
+        var cfg = await homebridge.getPluginConfig();
+        var res = await homebridge.request('/get-devices');
+        var platform = (cfg && cfg.length > 0) ? cfg[0] : { platform: 'BedJetPlatform', name: 'BedJetPlatform' };
+        platform.devices = res.devices;
+        await homebridge.updatePluginConfig(cfg && cfg.length > 0 ? cfg : [platform]);
+      } catch (e) {
+        // Non-fatal — the server-side write already committed to disk.
+        console.warn('BedJet UI: could not sync in-memory config:', e);
+      }
+    }
+
     // ── Save defaults for existing device ─────────────────────────────────────
 
     async function saveDefaults(btn, card) {
@@ -429,6 +446,8 @@
           defaultTemperature: defaultTemp,
           defaultFanSpeed: defaultFan,
         });
+        // Keep Homebridge's in-memory config in sync so purple SAVE doesn't overwrite.
+        await syncHomebridgeConfig();
         btn.disabled = false;
         btn.textContent = 'Save';
         if (msg) { msg.textContent = '✓ Saved'; msg.className = 'card-msg ok'; }
@@ -461,6 +480,8 @@
         if (defaultFan  !== null) payload.defaultFanSpeed    = defaultFan;
 
         var result = await homebridge.request('/add-device', payload);
+        // Keep Homebridge's in-memory config in sync so purple SAVE doesn't overwrite.
+        await syncHomebridgeConfig();
 
         if (result && result.status === 'already_exists') {
           btn.textContent = '✓ Already added';

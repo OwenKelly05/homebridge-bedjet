@@ -1,5 +1,7 @@
 # homebridge-bedjet
 
+DISCLAIMER - This project is entirely vibecoded. I don't have development experience.
+
 Homebridge plugin for the **BedJet V3** climate comfort system via Bluetooth LE.
 
 Exposes a **Thermostat** and a **Fan** accessory in HomeKit so you can control temperature and fan speed from the Home app, Siri, or automations — without needing the BedJet cloud or the BedJet mobile app running.

@@ -28,8 +28,10 @@ function getConfigPath() {
 class BedJetUiServer extends HomebridgePluginUiServer {
   constructor() {
     super();
-    this.onRequest('/scan',       this.handleScan.bind(this));
-    this.onRequest('/add-device', this.handleAddDevice.bind(this));
+    this.onRequest('/scan',           this.handleScan.bind(this));
+    this.onRequest('/add-device',     this.handleAddDevice.bind(this));
+    this.onRequest('/get-devices',    this.handleGetDevices.bind(this));
+    this.onRequest('/update-device',  this.handleUpdateDevice.bind(this));
     this.ready();
   }
 
@@ -120,6 +122,63 @@ class BedJetUiServer extends HomebridgePluginUiServer {
       fs.writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf8');
     } catch (err) {
       throw new Error(`Cannot write config file: ${err.message}`);
+    }
+
+    return { status: 'ok' };
+  }
+
+  // ── Read configured devices ───────────────────────────────────────────────
+
+  async handleGetDevices() {
+    const configPath = getConfigPath();
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const platform = (config.platforms || []).find(p => p.platform === 'BedJetPlatform');
+      return { devices: (platform && Array.isArray(platform.devices)) ? platform.devices : [] };
+    } catch (err) {
+      throw new Error(`Cannot read config: ${err.message}`);
+    }
+  }
+
+  // ── Update defaults for an existing device ────────────────────────────────
+
+  async handleUpdateDevice(body) {
+    const { address, defaultMode, defaultTemperature, defaultFanSpeed } = body || {};
+    if (!address) throw new Error('Missing address');
+
+    const configPath = getConfigPath();
+    let config;
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (err) {
+      throw new Error(`Cannot read config: ${err.message}`);
+    }
+
+    const platform = (config.platforms || []).find(p => p.platform === 'BedJetPlatform');
+    if (!platform) throw new Error('BedJetPlatform not found in config');
+
+    const device = (platform.devices || []).find(
+      d => d.address && d.address.toUpperCase() === address.toUpperCase(),
+    );
+    if (!device) throw new Error('Device not found in config');
+
+    if (defaultMode)                                                  device.defaultMode        = defaultMode;
+    else                                                              delete device.defaultMode;
+    if (defaultTemperature !== undefined && defaultTemperature !== null && defaultTemperature !== '') {
+      device.defaultTemperature = Number(defaultTemperature);
+    } else {
+      delete device.defaultTemperature;
+    }
+    if (defaultFanSpeed !== undefined && defaultFanSpeed !== null && defaultFanSpeed !== '') {
+      device.defaultFanSpeed = Number(defaultFanSpeed);
+    } else {
+      delete device.defaultFanSpeed;
+    }
+
+    try {
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf8');
+    } catch (err) {
+      throw new Error(`Cannot write config: ${err.message}`);
     }
 
     return { status: 'ok' };

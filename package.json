@@ -1,7 +1,7 @@
 {
   "name": "homebridge-bedjet",
   "displayName": "BedJet",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Homebridge plugin for BedJet V3 via Bluetooth LE",
   "license": "MIT",
   "main": "dist/index.js",

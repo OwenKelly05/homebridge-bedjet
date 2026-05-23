@@ -12,6 +12,21 @@ const DEFAULT_MODE_MAP: Record<DefaultMode, OperatingMode> = {
   dry:          OperatingMode.DRY,
 };
 
+/**
+ * HomeKit only allows alphanumeric, space, and apostrophe characters in names,
+ * starting and ending with alphanumeric. Underscores and other punctuation
+ * cause HAP warnings and may prevent the accessory from pairing.
+ */
+function sanitizeName(name: string): string {
+  return name
+    .replace(/_/g, ' ')                    // underscores → spaces
+    .replace(/[^a-zA-Z0-9 ']/g, ' ')       // anything else invalid → space
+    .replace(/\s+/g, ' ')                  // collapse multiple spaces
+    .trim()
+    .replace(/^[^a-zA-Z0-9]+/, '')         // must start with alphanumeric
+    .replace(/[^a-zA-Z0-9]+$/, '') || 'BedJet'; // must end with alphanumeric
+}
+
 // OperatingMode → CurrentHeatingCoolingState value
 const CURRENT_STATE_MAP: Record<OperatingMode, number> = {
   [OperatingMode.STANDBY]:       0, // OFF
@@ -69,6 +84,7 @@ export class BedJetAccessory {
     private readonly config: BedJetConfig,
   ) {
     const { Service, Characteristic } = platform.api.hap;
+    const safeName = sanitizeName(config.name);
 
     // AccessoryInformation
     const infoService = this.accessory.getService(Service.AccessoryInformation)
@@ -80,7 +96,7 @@ export class BedJetAccessory {
 
     // Thermostat service
     this.thermostatService = this.accessory.getService(Service.Thermostat)
-      ?? this.accessory.addService(Service.Thermostat, config.name, 'thermostat');
+      ?? this.accessory.addService(Service.Thermostat, safeName, 'thermostat');
 
     this.thermostatService.getCharacteristic(Characteristic.TemperatureDisplayUnits)
       .onGet(() => Characteristic.TemperatureDisplayUnits.CELSIUS);
@@ -127,7 +143,7 @@ export class BedJetAccessory {
 
     // FanV2 service
     this.fanService = this.accessory.getService(Service.Fanv2)
-      ?? this.accessory.addService(Service.Fanv2, `${config.name} Fan`, 'fan');
+      ?? this.accessory.addService(Service.Fanv2, `${safeName} Fan`, 'fan');
 
     this.fanService.getCharacteristic(Characteristic.Active)
       .onGet(() =>

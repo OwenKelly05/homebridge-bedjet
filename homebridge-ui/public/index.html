@@ -77,15 +77,20 @@
       transition: width 0.3s linear;
     }
 
+    /* ── Device card ─────────────────────────────────────────────────────── */
+
     .device-card {
       border: 1px solid rgba(128,128,128,0.25);
       border-radius: 8px;
-      padding: 11px 13px;
-      margin-bottom: 8px;
+      padding: 12px 13px;
+      margin-bottom: 10px;
+    }
+
+    .card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .device-name { font-weight: 500; }
@@ -96,18 +101,68 @@
       margin-top: 2px;
     }
 
-    .device-right {
+    /* ── Defaults row ────────────────────────────────────────────────────── */
+
+    .defaults-row {
       display: flex;
-      flex-direction: column;
+      gap: 8px;
       align-items: flex-end;
-      gap: 5px;
-      flex-shrink: 0;
-      min-width: 120px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
-    .add-btn {
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 80px;
+    }
+
+    .field label {
+      font-size: 11px;
+      opacity: 0.55;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field select,
+    .field input[type="number"] {
+      padding: 5px 7px;
+      border-radius: 5px;
+      border: 1px solid rgba(128,128,128,0.35);
+      background: rgba(128,128,128,0.08);
+      color: inherit;
+      font-size: 13px;
       width: 100%;
-      padding: 6px 12px;
+      box-sizing: border-box;
+    }
+
+    .field select:focus,
+    .field input[type="number"]:focus {
+      outline: none;
+      border-color: #e25c00;
+    }
+
+    /* ── Footer row (button + message) ──────────────────────────────────── */
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-msg {
+      font-size: 12px;
+      flex: 1;
+    }
+    .card-msg.ok  { color: #4caf50; }
+    .card-msg.err { color: #f28b82; }
+
+    .add-btn {
+      padding: 6px 16px;
       border: none;
       border-radius: 5px;
       font-size: 13px;
@@ -116,18 +171,13 @@
       background: #1a7a40;
       color: #fff;
       transition: opacity 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .add-btn:hover:not(:disabled) { opacity: 0.85; }
     .add-btn:disabled { opacity: 0.55; cursor: default; }
 
-    .card-msg {
-      font-size: 11px;
-      text-align: right;
-      min-height: 14px;
-      width: 100%;
-    }
-    .card-msg.ok  { color: #4caf50; }
-    .card-msg.err { color: #f28b82; }
+    /* ── Notices ─────────────────────────────────────────────────────────── */
 
     .notice {
       padding: 10px 13px;
@@ -158,17 +208,38 @@
     var SCAN_MS = 12000;
     var scanning = false;
 
-    // ── Wire up buttons via addEventListener, never inline onclick ────────────
+    var MODES = [
+      { value: 'heat',         label: 'Heat' },
+      { value: 'turbo',        label: 'Turbo' },
+      { value: 'extendedHeat', label: 'Extended Heat' },
+      { value: 'cool',         label: 'Cool (Fan Only)' },
+      { value: 'dry',          label: 'Dry' },
+    ];
+
+    // ── Scan button ───────────────────────────────────────────────────────────
 
     document.getElementById('scanBtn').addEventListener('click', startScan);
 
-    // Event delegation for dynamically created Add buttons
+    // Event delegation for Add buttons
     document.getElementById('results').addEventListener('click', function (e) {
       var btn = e.target;
       if (!btn.classList.contains('add-btn') || btn.disabled) return;
-      var name    = btn.getAttribute('data-name');
-      var address = btn.getAttribute('data-address');
-      addDevice(btn, name, address);
+      var card = btn.closest('.device-card');
+      if (!card) return;
+
+      var name    = card.getAttribute('data-name');
+      var address = card.getAttribute('data-address');
+
+      // Read defaults from the card's inputs
+      var modeEl  = card.querySelector('.field-mode');
+      var tempEl  = card.querySelector('.field-temp');
+      var fanEl   = card.querySelector('.field-fan');
+
+      var defaultMode        = modeEl  ? modeEl.value  : 'heat';
+      var defaultTemperature = tempEl  && tempEl.value  !== '' ? parseFloat(tempEl.value)  : null;
+      var defaultFanSpeed    = fanEl   && fanEl.value   !== '' ? parseInt(fanEl.value, 10) : null;
+
+      addDevice(btn, card, name, address, defaultMode, defaultTemperature, defaultFanSpeed);
     });
 
     // ── Scan ──────────────────────────────────────────────────────────────────
@@ -177,11 +248,11 @@
       if (scanning) return;
       scanning = true;
 
-      var scanBtn  = document.getElementById('scanBtn');
-      var status   = document.getElementById('scanStatus');
-      var pWrap    = document.getElementById('progressWrap');
-      var pFill    = document.getElementById('progressFill');
-      var results  = document.getElementById('results');
+      var scanBtn = document.getElementById('scanBtn');
+      var status  = document.getElementById('scanStatus');
+      var pWrap   = document.getElementById('progressWrap');
+      var pFill   = document.getElementById('progressFill');
+      var results = document.getElementById('results');
 
       scanBtn.disabled = true;
       results.innerHTML = '';
@@ -205,9 +276,13 @@
 
         var devices = (res && Array.isArray(res.devices)) ? res.devices : [];
         if (devices.length === 0) {
-          results.innerHTML = '<div class="notice">No BedJet devices found nearby. Make sure your BedJet is powered on and not connected to another app, then try again.</div>';
+          results.innerHTML = '<div class="notice">No BedJet devices found nearby. Make sure your BedJet is powered on and not already connected to another app, then try again.</div>';
         } else {
-          results.innerHTML = devices.map(renderCard).join('');
+          // Build cards via DOM (no inline JS strings → no quote escaping issues)
+          results.innerHTML = '';
+          devices.forEach(function (d) {
+            results.appendChild(buildCard(d));
+          });
         }
       } catch (err) {
         clearInterval(timer);
@@ -220,61 +295,123 @@
       }
     }
 
-    // ── Card ──────────────────────────────────────────────────────────────────
-    // Device name/address stored in data-* attributes — no inline JS strings
+    // ── Card builder (pure DOM, no innerHTML with user data) ──────────────────
 
-    function renderCard(d) {
+    function buildCard(d) {
       var card = document.createElement('div');
       card.className = 'device-card';
+      card.setAttribute('data-name',    d.name);
+      card.setAttribute('data-address', d.address);
+
+      // — Header: name + address —
+      var header = document.createElement('div');
+      header.className = 'card-header';
 
       var info = document.createElement('div');
-
       var nameEl = document.createElement('div');
       nameEl.className = 'device-name';
       nameEl.textContent = d.name;
-
       var addrEl = document.createElement('div');
       addrEl.className = 'device-addr';
       addrEl.textContent = d.address;
-
       info.appendChild(nameEl);
       info.appendChild(addrEl);
+      header.appendChild(info);
+      card.appendChild(header);
 
-      var right = document.createElement('div');
-      right.className = 'device-right';
+      // — Defaults row —
+      var row = document.createElement('div');
+      row.className = 'defaults-row';
+
+      // Mode select
+      var modeField = document.createElement('div');
+      modeField.className = 'field';
+      modeField.style.flex = '2';
+      var modeLabel = document.createElement('label');
+      modeLabel.textContent = 'Default Mode';
+      var modeSelect = document.createElement('select');
+      modeSelect.className = 'field-mode';
+      MODES.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.label;
+        if (m.value === 'heat') opt.selected = true;
+        modeSelect.appendChild(opt);
+      });
+      modeField.appendChild(modeLabel);
+      modeField.appendChild(modeSelect);
+      row.appendChild(modeField);
+
+      // Temperature input
+      var tempField = document.createElement('div');
+      tempField.className = 'field';
+      var tempLabel = document.createElement('label');
+      tempLabel.textContent = 'Temp °C';
+      var tempInput = document.createElement('input');
+      tempInput.type = 'number';
+      tempInput.className = 'field-temp';
+      tempInput.min = '19';
+      tempInput.max = '43';
+      tempInput.step = '0.5';
+      tempInput.placeholder = 'Optional';
+      tempField.appendChild(tempLabel);
+      tempField.appendChild(tempInput);
+      row.appendChild(tempField);
+
+      // Fan speed input
+      var fanField = document.createElement('div');
+      fanField.className = 'field';
+      var fanLabel = document.createElement('label');
+      fanLabel.textContent = 'Fan %';
+      var fanInput = document.createElement('input');
+      fanInput.type = 'number';
+      fanInput.className = 'field-fan';
+      fanInput.min = '5';
+      fanInput.max = '100';
+      fanInput.step = '5';
+      fanInput.placeholder = 'Optional';
+      fanField.appendChild(fanLabel);
+      fanField.appendChild(fanInput);
+      row.appendChild(fanField);
+
+      card.appendChild(row);
+
+      // — Footer: message + button —
+      var footer = document.createElement('div');
+      footer.className = 'card-footer';
+
+      var msg = document.createElement('div');
+      msg.className = 'card-msg';
 
       var btn = document.createElement('button');
       btn.className = 'add-btn';
       btn.textContent = 'Add to Config';
-      btn.setAttribute('data-name',    d.name);
-      btn.setAttribute('data-address', d.address);
 
-      var msgEl = document.createElement('div');
-      msgEl.className = 'card-msg';
+      footer.appendChild(msg);
+      footer.appendChild(btn);
+      card.appendChild(footer);
 
-      right.appendChild(btn);
-      right.appendChild(msgEl);
-      card.appendChild(info);
-      card.appendChild(right);
-
-      // Store msgEl reference on btn for easy access in handler
-      btn._msgEl = msgEl;
-
-      return card.outerHTML;
+      return card;
     }
 
-    // ── Add device ─────────────────────────────────────────────────────────────
+    // ── Add device ────────────────────────────────────────────────────────────
 
-    async function addDevice(btn, name, address) {
-      // Find the sibling message element
-      var msg = btn.parentElement ? btn.parentElement.querySelector('.card-msg') : null;
+    async function addDevice(btn, card, name, address, defaultMode, defaultTemperature, defaultFanSpeed) {
+      var msg = card.querySelector('.card-msg');
 
       btn.disabled = true;
       btn.textContent = 'Saving…';
       if (msg) { msg.textContent = ''; msg.className = 'card-msg'; }
 
+      // Lock inputs while saving
+      card.querySelectorAll('select, input').forEach(function (el) { el.disabled = true; });
+
       try {
-        var result = await homebridge.request('/add-device', { name: name, address: address });
+        var payload = { name: name, address: address, defaultMode: defaultMode };
+        if (defaultTemperature !== null) payload.defaultTemperature = defaultTemperature;
+        if (defaultFanSpeed    !== null) payload.defaultFanSpeed    = defaultFanSpeed;
+
+        var result = await homebridge.request('/add-device', payload);
 
         if (result && result.status === 'already_exists') {
           btn.textContent = '✓ Already added';
@@ -285,8 +422,10 @@
           if (msg) { msg.textContent = 'Saved — restart Homebridge.'; msg.className = 'card-msg ok'; }
         }
       } catch (err) {
+        // Re-enable on failure so the user can retry
         btn.disabled = false;
         btn.textContent = 'Add to Config';
+        card.querySelectorAll('select, input').forEach(function (el) { el.disabled = false; });
         var errMsg = err && err.message ? err.message : String(err);
         if (msg) { msg.textContent = 'Error: ' + errMsg; msg.className = 'card-msg err'; }
       }

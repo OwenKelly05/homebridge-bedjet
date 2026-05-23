@@ -73,7 +73,7 @@ class BedJetUiServer extends HomebridgePluginUiServer {
   // ── Config write ─────────────────────────────────────────────────────────────
 
   async handleAddDevice(body) {
-    const { name, address } = body || {};
+    const { name, address, defaultMode, defaultTemperature, defaultFanSpeed } = body || {};
 
     if (!name || !address) {
       throw new Error('Missing name or address');
@@ -109,7 +109,12 @@ class BedJetUiServer extends HomebridgePluginUiServer {
       return { status: 'already_exists' };
     }
 
-    platform.devices.push({ name, address, scanTimeout: 30 });
+    const entry = { name, address, scanTimeout: 30 };
+    if (defaultMode)                                       entry.defaultMode        = defaultMode;
+    if (defaultTemperature !== undefined && defaultTemperature !== null) entry.defaultTemperature = Number(defaultTemperature);
+    if (defaultFanSpeed    !== undefined && defaultFanSpeed    !== null) entry.defaultFanSpeed    = Number(defaultFanSpeed);
+
+    platform.devices.push(entry);
 
     try {
       fs.writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf8');

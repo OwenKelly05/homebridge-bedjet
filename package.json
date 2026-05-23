@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-bedjet",
+  "displayName": "BedJet",
+  "version": "0.2.6",
+  "description": "Homebridge plugin for BedJet V3 via Bluetooth LE",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["homebridge-plugin", "bedjet", "homekit", "bluetooth"],
+  "engines": {
+    "homebridge": ">=1.8.0",
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@homebridge/plugin-ui-utils": "^1.0.0",
+    "node-ble": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "homebridge": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+}

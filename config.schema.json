@@ -1,0 +1,40 @@
+{
+  "pluginAlias": "BedJetPlatform",
+  "pluginType": "platform",
+  "singular": false,
+  "customUi": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "devices": {
+        "title": "BedJet Devices",
+        "type": "array",
+        "items": {
+          "title": "BedJet Device",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Display Name",
+              "type": "string",
+              "required": true,
+              "default": "BedJet"
+            },
+            "address": {
+              "title": "Bluetooth MAC Address",
+              "type": "string",
+              "required": true,
+              "placeholder": "AA:BB:CC:DD:EE:FF",
+              "description": "BLE MAC address of your BedJet V3. On Linux, find it with: sudo hcitool lescan"
+            },
+            "scanTimeout": {
+              "title": "Scan Timeout (seconds)",
+              "type": "integer",
+              "default": 30,
+              "description": "How long to scan for the device before giving up (default: 30)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

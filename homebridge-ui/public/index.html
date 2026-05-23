@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BedJet Discovery</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: transparent;
+      color: inherit;
+      font-size: 14px;
+    }
+
+    h6 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      opacity: 0.5;
+      margin: 0 0 12px;
+    }
+
+    .scan-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    #scanBtn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #e25c00;
+      color: #fff;
+      transition: opacity 0.15s;
+    }
+    #scanBtn:hover:not(:disabled) { opacity: 0.85; }
+    #scanBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    #scanStatus {
+      font-size: 13px;
+      opacity: 0.6;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(128,128,128,0.3);
+      border-top-color: #e25c00;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-wrap {
+      height: 3px;
+      background: rgba(128,128,128,0.2);
+      border-radius: 2px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #e25c00;
+      width: 0%;
+      transition: width 0.3s linear;
+    }
+
+    .device-card {
+      border: 1px solid rgba(128,128,128,0.25);
+      border-radius: 8px;
+      padding: 11px 13px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .device-name { font-weight: 500; }
+    .device-addr {
+      font-size: 11px;
+      opacity: 0.55;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      margin-top: 2px;
+    }
+
+    .device-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+      flex-shrink: 0;
+      min-width: 120px;
+    }
+
+    .add-btn {
+      width: 100%;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #1a7a40;
+      color: #fff;
+      transition: opacity 0.15s;
+    }
+    .add-btn:hover:not(:disabled) { opacity: 0.85; }
+    .add-btn:disabled { opacity: 0.55; cursor: default; }
+
+    .card-msg {
+      font-size: 11px;
+      text-align: right;
+      min-height: 14px;
+      width: 100%;
+    }
+    .card-msg.ok  { color: #4caf50; }
+    .card-msg.err { color: #f28b82; }
+
+    .notice {
+      padding: 10px 13px;
+      border-radius: 7px;
+      font-size: 13px;
+      border: 1px solid rgba(128,128,128,0.2);
+      opacity: 0.75;
+    }
+    .notice.error { border-color: rgba(242,139,130,0.4); color: #f28b82; opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <h6>Bluetooth Discovery</h6>
+
+  <div class="scan-row">
+    <button id="scanBtn">Scan for BedJets</button>
+    <div id="scanStatus"></div>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <div id="results"></div>
+
+  <script>
+    var SCAN_MS = 12000;
+    var scanning = false;
+
+    // ── Wire up buttons via addEventListener, never inline onclick ────────────
+
+    document.getElementById('scanBtn').addEventListener('click', startScan);
+
+    // Event delegation for dynamically created Add buttons
+    document.getElementById('results').addEventListener('click', function (e) {
+      var btn = e.target;
+      if (!btn.classList.contains('add-btn') || btn.disabled) return;
+      var name    = btn.getAttribute('data-name');
+      var address = btn.getAttribute('data-address');
+      addDevice(btn, name, address);
+    });
+
+    // ── Scan ──────────────────────────────────────────────────────────────────
+
+    async function startScan() {
+      if (scanning) return;
+      scanning = true;
+
+      var scanBtn  = document.getElementById('scanBtn');
+      var status   = document.getElementById('scanStatus');
+      var pWrap    = document.getElementById('progressWrap');
+      var pFill    = document.getElementById('progressFill');
+      var results  = document.getElementById('results');
+
+      scanBtn.disabled = true;
+      results.innerHTML = '';
+      pFill.style.width = '0%';
+      pWrap.style.display = 'block';
+      status.innerHTML = '<div class="spinner"></div>&nbsp;Scanning…';
+
+      var elapsed = 0;
+      var tickMs  = 200;
+      var timer = setInterval(function () {
+        elapsed += tickMs;
+        pFill.style.width = Math.min(100, (elapsed / SCAN_MS) * 100) + '%';
+        if (elapsed >= SCAN_MS) clearInterval(timer);
+      }, tickMs);
+
+      try {
+        var res = await homebridge.request('/scan');
+        clearInterval(timer);
+        pFill.style.width = '100%';
+        status.innerHTML = '';
+
+        var devices = (res && Array.isArray(res.devices)) ? res.devices : [];
+        if (devices.length === 0) {
+          results.innerHTML = '<div class="notice">No BedJet devices found nearby. Make sure your BedJet is powered on and not connected to another app, then try again.</div>';
+        } else {
+          results.innerHTML = devices.map(renderCard).join('');
+        }
+      } catch (err) {
+        clearInterval(timer);
+        status.innerHTML = '';
+        results.innerHTML = '<div class="notice error">Scan failed: ' + esc(err && err.message ? err.message : String(err)) + '</div>';
+      } finally {
+        setTimeout(function () { pWrap.style.display = 'none'; pFill.style.width = '0%'; }, 500);
+        scanBtn.disabled = false;
+        scanning = false;
+      }
+    }
+
+    // ── Card ──────────────────────────────────────────────────────────────────
+    // Device name/address stored in data-* attributes — no inline JS strings
+
+    function renderCard(d) {
+      var card = document.createElement('div');
+      card.className = 'device-card';
+
+      var info = document.createElement('div');
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'device-name';
+      nameEl.textContent = d.name;
+
+      var addrEl = document.createElement('div');
+      addrEl.className = 'device-addr';
+      addrEl.textContent = d.address;
+
+      info.appendChild(nameEl);
+      info.appendChild(addrEl);
+
+      var right = document.createElement('div');
+      right.className = 'device-right';
+
+      var btn = document.createElement('button');
+      btn.className = 'add-btn';
+      btn.textContent = 'Add to Config';
+      btn.setAttribute('data-name',    d.name);
+      btn.setAttribute('data-address', d.address);
+
+      var msgEl = document.createElement('div');
+      msgEl.className = 'card-msg';
+
+      right.appendChild(btn);
+      right.appendChild(msgEl);
+      card.appendChild(info);
+      card.appendChild(right);
+
+      // Store msgEl reference on btn for easy access in handler
+      btn._msgEl = msgEl;
+
+      return card.outerHTML;
+    }
+
+    // ── Add device ─────────────────────────────────────────────────────────────
+
+    async function addDevice(btn, name, address) {
+      // Find the sibling message element
+      var msg = btn.parentElement ? btn.parentElement.querySelector('.card-msg') : null;
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      if (msg) { msg.textContent = ''; msg.className = 'card-msg'; }
+
+      try {
+        var result = await homebridge.request('/add-device', { name: name, address: address });
+
+        if (result && result.status === 'already_exists') {
+          btn.textContent = '✓ Already added';
+          if (msg) { msg.textContent = 'Already in config.'; msg.className = 'card-msg ok'; }
+        } else {
+          btn.textContent = '✓ Added!';
+          btn.style.background = '#145c30';
+          if (msg) { msg.textContent = 'Saved — restart Homebridge.'; msg.className = 'card-msg ok'; }
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Add to Config';
+        var errMsg = err && err.message ? err.message : String(err);
+        if (msg) { msg.textContent = 'Error: ' + errMsg; msg.className = 'card-msg err'; }
+      }
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

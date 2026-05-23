@@ -1,6 +1,7 @@
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig } from 'homebridge';
 import { BedJetAccessory } from './accessory';
 import type { BedJetConfig } from './bedjet/types';
+import { sanitizeName } from './utils';
 
 export const PLATFORM_NAME = 'BedJetPlatform';
 export const PLUGIN_NAME   = 'homebridge-bedjet';
@@ -45,15 +46,18 @@ export class BedJetPlatform implements DynamicPlatformPlugin {
       this.discoveredUUIDs.push(uuid);
 
       const existing = this.accessories.get(uuid);
+      const safeName = sanitizeName(device.name);
 
       if (existing) {
         this.log.info('Restoring existing accessory from cache:', existing.displayName);
         existing.context.device = device;
+        // Update the display name in case the config name changed or was invalid
+        existing.displayName = safeName;
         this.api.updatePlatformAccessories([existing]);
         new BedJetAccessory(this, existing, device);
       } else {
-        this.log.info('Adding new accessory:', device.name);
-        const accessory = new this.api.platformAccessory(device.name, uuid);
+        this.log.info('Adding new accessory:', safeName);
+        const accessory = new this.api.platformAccessory(safeName, uuid);
         accessory.context.device = device;
         new BedJetAccessory(this, accessory, device);
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);

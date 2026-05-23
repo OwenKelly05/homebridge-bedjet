@@ -3,6 +3,7 @@ import { BedJet } from './bedjet/BedJet';
 import { OperatingMode } from './bedjet/constants';
 import type { BedJetConfig, BedJetState, DefaultMode } from './bedjet/types';
 import type { BedJetPlatform } from './platform';
+import { sanitizeName } from './utils';
 
 const DEFAULT_MODE_MAP: Record<DefaultMode, OperatingMode> = {
   heat:         OperatingMode.HEAT,
@@ -12,20 +13,6 @@ const DEFAULT_MODE_MAP: Record<DefaultMode, OperatingMode> = {
   dry:          OperatingMode.DRY,
 };
 
-/**
- * HomeKit only allows alphanumeric, space, and apostrophe characters in names,
- * starting and ending with alphanumeric. Underscores and other punctuation
- * cause HAP warnings and may prevent the accessory from pairing.
- */
-function sanitizeName(name: string): string {
-  return name
-    .replace(/_/g, ' ')                    // underscores → spaces
-    .replace(/[^a-zA-Z0-9 ']/g, ' ')       // anything else invalid → space
-    .replace(/\s+/g, ' ')                  // collapse multiple spaces
-    .trim()
-    .replace(/^[^a-zA-Z0-9]+/, '')         // must start with alphanumeric
-    .replace(/[^a-zA-Z0-9]+$/, '') || 'BedJet'; // must end with alphanumeric
-}
 
 // OperatingMode → CurrentHeatingCoolingState value
 const CURRENT_STATE_MAP: Record<OperatingMode, number> = {
